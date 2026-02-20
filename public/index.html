@@ -179,15 +179,34 @@ let gs=null, myName=sessionStorage.getItem('playerName')||null,
     myRole=sessionStorage.getItem('quizRole')||null,
     screen=null, tickId=null, tickRem=0;
 
-socket.on('state', newGs => {
-  const prevScreen = screen;
+socket.on('state', (newGs) => {
+  const prevPhase = gs?.phase;
+  const prevQi = gs?.questionIndex;
+
   gs = newGs;
-  if (myRole==='host' && screen==='host-q')   { updateCounter(); return; }
-  if (myRole==='player' && screen==='player-q') {
-    const answered = gs.answers?.[`q${gs.questionIndex}`]?.[myName];
-    if (answered!==undefined) { stopTick(); render(); }
-    return;
+
+  // ✅ HOST: solo “actualiza contador” si SIGUE en la misma pregunta y fase question
+  if (myRole === 'host' && screen === 'host-q') {
+    const sameQuestion = prevQi === gs.questionIndex;
+    const stillQuestion = gs.phase === 'question';
+    if (stillQuestion && sameQuestion) {
+      updateCounter();
+      return;
+    }
+    // si cambió phase (question->results/podium) o cambió pregunta, re-render normal
   }
+
+  // ✅ PLAYER: mismo criterio (si ya está en pregunta y aún no responde)
+  if (myRole === 'player' && screen === 'player-q') {
+    const answered = gs.answers?.[`q${gs.questionIndex}`]?.[myName];
+    if (answered !== undefined) {
+      stopTick();
+      render();
+      return;
+    }
+    // si cambió phase, re-render normal
+  }
+
   render();
 });
 
