@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Honda Power Platform Quiz 🏍️</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Exo+2:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="/socket.io/socket.io.js"></script>
+<style>
+:root {
+  --red:#CC0000; --dark-red:#990000; --red-soft:rgba(204,0,0,0.08); --red-mid:rgba(204,0,0,0.15);
+  --bg:#F7F7F7; --bg2:#FFFFFF; --bg3:#F0F0F0;
+  --text:#1a1a1a; --text2:#444; --gray:#888; --border:rgba(0,0,0,0.09);
+  --shadow:0 4px 24px rgba(0,0,0,0.10);
+  --A:#e74c3c; --B:#3498db; --C:#27ae60; --D:#e67e22;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Exo 2',sans-serif;min-height:100vh;overflow-x:hidden}
+
+/* BACKGROUND */
+.bg{position:fixed;inset:0;z-index:0;
+  background:
+    radial-gradient(ellipse at 10% 20%, rgba(204,0,0,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 80%, rgba(204,0,0,0.04) 0%, transparent 50%),
+    var(--bg)}
+.bg::after{content:'';position:absolute;inset:0;
+  background-image:
+    repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,0,0,0.03) 40px),
+    repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,0,0,0.03) 40px)}
+
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+
+/* SCREEN */
+.screen{display:none;flex-direction:column;align-items:center;width:100%;gap:20px;max-width:900px}
+.screen.active{display:flex;animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* LOGO */
+.logo{display:flex;align-items:center;gap:10px;font-family:'Rajdhani',sans-serif;font-size:28px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text)}
+.logo em{color:var(--red);font-style:normal}
+
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:18px;padding:32px;width:100%;box-shadow:var(--shadow)}
+.card-title{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;color:var(--text)}
+.card-sub{color:var(--gray);font-size:14px;margin-bottom:22px}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 28px;border:none;border-radius:10px;font-family:'Exo 2',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:1px}
+.btn-red{background:var(--red);color:#fff;box-shadow:0 4px 16px rgba(204,0,0,0.30)}
+.btn-red:hover{background:var(--dark-red);transform:translateY(-2px);box-shadow:0 6px 20px rgba(204,0,0,0.40)}
+.btn-outline{background:transparent;color:var(--text);border:2px solid var(--border)}
+.btn-outline:hover{border-color:var(--red);color:var(--red)}
+.btn-full{width:100%}
+.btn:disabled{opacity:.35;cursor:not-allowed;transform:none!important}
+
+/* INPUT */
+.inp{width:100%;padding:13px 16px;background:var(--bg3);border:2px solid var(--border);border-radius:10px;color:var(--text);font-size:15px;font-family:'Exo 2',sans-serif;outline:none;transition:border-color .2s;margin-bottom:14px}
+.inp:focus{border-color:var(--red);background:#fff}
+.inp::placeholder{color:var(--gray)}
+
+/* BADGES */
+.tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--red)}
+.badge-host{background:var(--red);color:#fff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:1px}
+.badge-ok{background:rgba(39,174,96,0.12);border:1px solid rgba(39,174,96,0.35);color:#27ae60;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;display:inline-flex;align-items:center;gap:4px}
+
+/* TIMER */
+.timer-wrap{width:100%;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.timer-bar{height:100%;background:var(--red);border-radius:4px;transition:width .9s linear}
+.timer-num{width:58px;height:58px;border-radius:50%;background:var(--bg2);border:3px solid var(--red);display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-size:26px;font-weight:700;color:var(--red);flex-shrink:0;box-shadow:0 2px 12px rgba(204,0,0,0.15)}
+
+/* QUESTION */
+.q-text{font-family:'Rajdhani',sans-serif;font-size:clamp(20px,3.5vw,32px);font-weight:700;line-height:1.3;text-align:center;color:var(--text)}
+
+/* ANSWER BUTTONS */
+.ans-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%}
+@media(max-width:480px){.ans-grid{grid-template-columns:1fr}}
+.ans-btn{display:flex;align-items:center;gap:12px;padding:16px 20px;border:none;border-radius:14px;font-size:15px;font-weight:700;color:#fff;font-family:'Exo 2',sans-serif;cursor:pointer;transition:all .2s;text-align:left;box-shadow:0 3px 10px rgba(0,0,0,0.15)}
+.ans-btn.A{background:var(--A)}.ans-btn.B{background:var(--B)}.ans-btn.C{background:var(--C)}.ans-btn.D{background:var(--D)}
+.ans-btn:hover:not(:disabled){transform:translateY(-3px);filter:brightness(1.08);box-shadow:0 6px 18px rgba(0,0,0,0.2)}
+.ans-btn:disabled{cursor:not-allowed;transform:none}
+.ans-letter{width:32px;height:32px;border-radius:50%;background:rgba(0,0,0,0.18);display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:700;flex-shrink:0}
+
+/* RESULTS BARS */
+.res-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.res-letter{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:700;flex-shrink:0;color:#fff}
+.res-letter.A{background:var(--A)}.res-letter.B{background:var(--B)}.res-letter.C{background:var(--C)}.res-letter.D{background:var(--D)}
+.res-bg{flex:1;height:44px;background:var(--bg3);border-radius:10px;overflow:hidden}
+.res-fill{height:100%;border-radius:10px;display:flex;align-items:center;padding:0 14px;font-size:14px;font-weight:700;color:#fff;min-width:0;transition:width 1s cubic-bezier(.25,.8,.25,1)}
+.res-fill.A{background:var(--A)}.res-fill.B{background:var(--B)}.res-fill.C{background:var(--C)}.res-fill.D{background:var(--D)}
+.res-fill.cglow{box-shadow:0 0 16px rgba(39,174,96,0.45)}
+
+/* PLAYERS */
+.players-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;width:100%}
+.p-chip{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:9px 12px;text-align:center;font-size:13px;font-weight:600;color:var(--text);box-shadow:0 2px 6px rgba(0,0,0,0.06);animation:popIn .3s cubic-bezier(.175,.885,.32,1.275)}
+@keyframes popIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* LEADERBOARD */
+.lb-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;margin-bottom:6px;background:var(--bg3);border:1px solid var(--border);animation:slideIn .4s ease both}
+@keyframes slideIn{from{transform:translateX(-16px);opacity:0}to{transform:none;opacity:1}}
+.lb-rank{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;width:28px;text-align:center;color:var(--text2)}
+.lb-rank.r1{color:#D4AF00}.lb-rank.r2{color:#888}.lb-rank.r3{color:#b87333}
+.lb-name{flex:1;font-size:15px;font-weight:600;color:var(--text)}
+.lb-score{font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;color:var(--red)}
+
+/* PODIUM */
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:10px;padding:0 10px;width:100%;max-width:480px}
+.podium-place{display:flex;flex-direction:column;align-items:center;gap:6px}
+.podium-name{font-size:13px;font-weight:700;text-align:center;max-width:100px;word-break:break-word;color:var(--text)}
+.podium-score{font-size:11px;color:var(--gray)}
+.podium-block{width:88px;border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:center;font-size:36px}
+.p1 .podium-block{height:130px;background:linear-gradient(180deg,#FFD700,#FFA000);box-shadow:0 4px 20px rgba(255,165,0,0.35)}
+.p2 .podium-block{height:95px;background:linear-gradient(180deg,#BDBDBD,#9E9E9E);box-shadow:0 4px 14px rgba(0,0,0,0.15)}
+.p3 .podium-block{height:65px;background:linear-gradient(180deg,#CD7F32,#A0522D);box-shadow:0 4px 10px rgba(0,0,0,0.12)}
+
+.confetti-txt{font-family:'Rajdhani',sans-serif;font-size:42px;font-weight:700;text-align:center;
+  background:linear-gradient(135deg,#D4AF00,var(--red),#FF6B35);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+/* MISC */
+.top-bar{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.dots span{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin:0 3px;animation:bounce 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.big-num{font-family:'Rajdhani',sans-serif;font-size:56px;font-weight:700;color:var(--red);line-height:1}
+.pts-big{font-family:'Rajdhani',sans-serif;font-size:44px;font-weight:700;color:var(--red)}
+.err{color:var(--red);font-size:13px;min-height:18px;margin-bottom:8px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.scroll{max-height:280px;overflow-y:auto;width:100%}
+.scroll::-webkit-scrollbar{width:4px}
+.scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.switch-btn{position:fixed;bottom:14px;right:14px;background:var(--bg2);border:1px solid var(--border);color:var(--gray);padding:7px 14px;border-radius:8px;font-size:11px;cursor:pointer;font-family:'Exo 2',sans-serif;z-index:99;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+.switch-btn:hover{color:var(--red);border-color:var(--red)}
+
+/* URL BOX */
+.url-box{background:var(--red-soft);border:1px solid rgba(204,0,0,0.2);padding:14px 18px;border-radius:10px;font-size:14px;font-weight:700;word-break:break-all;color:var(--red);text-align:center}
+
+/* HERO CARD (mode select) */
+.hero-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;border:2px solid var(--border);border-radius:18px;background:var(--bg2);cursor:pointer;transition:all .2s;box-shadow:var(--shadow);width:100%}
+.hero-btn:hover{border-color:var(--red);box-shadow:0 6px 28px rgba(204,0,0,0.12);transform:translateY(-2px)}
+.hero-btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.hero-btn.primary:hover{background:var(--dark-red);box-shadow:0 6px 28px rgba(204,0,0,0.35)}
+.hero-icon{font-size:36px;line-height:1}
+.hero-label{font-family:'Rajdhani',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px}
+.hero-sub{font-size:12px;opacity:.7}
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<div id="app"></div>
+<script>
+// ══════════════════════════════════════════════════════════════
+// PREGUNTAS
+// ══════════════════════════════════════════════════════════════
+const Qs = [
+  { q:"¿Cuál es el objetivo principal del despliegue del WORKFLOW SA en Honda?",
+    opts:["Reducir el uso de papel en las oficinas.","Impulsar la transformación digital para reducción de tiempos.","Tener trazabilidad sobre las Solicitudes.","Todas las anteriores."], correct:3 },
+  { q:"Según la presentación, ¿qué es la Transformación Digital?",
+    opts:["Es simplemente comprar software nuevo cada año.","Un cambio cultural y estratégico que integra tecnologías para mejorar la eficiencia.","Una forma de reemplazar a todas las personas por robots.","Un proceso que no requiere la participación de los empleados."], correct:1 },
+  { q:"¿Cuál es la función principal de Power Apps?",
+    opts:["Crear gráficos de barras y pasteles únicamente.","Enviar correos electrónicos de forma masiva.","Ser la herramienta para crear aplicaciones y capturar datos (la \"cara\" del proceso).","Reparar motores de motocicletas automáticamente."], correct:2 },
+  { q:"¿Qué herramienta se define como el \"motor\" que traslada información y automatiza tareas?",
+    opts:["Power BI","Power Automate","Excel","Word"], correct:1 },
+  { q:"¿Qué característica hace que un flujo de trabajo sea ideal para ser automatizado?",
+    opts:["Que las reglas cambien todos los días sin previo aviso.","Que el proceso se haga una sola vez al año.","Que tenga alta repetición, reglas claras y sea propenso al error humano.","Que no requiera ningún tipo de datos de entrada."], correct:2 },
+  { q:"¿Qué herramienta de Power Platform se utiliza para el análisis de datos y la creación de tableros de indicadores?",
+    opts:["Power Apps","Power Automate","Power BI","Teams"], correct:2 },
+  { q:"¿Cuál es el primer paso en la \"Hoja de ruta\" para crear un flujo de trabajo?",
+    opts:["Identificación: elegir un proceso \"doloroso\", tedioso o repetitivo.","Comprar licencias premium inmediatamente.","Despedir al personal encargado del proceso manual.","Dibujar un gráfico en Power BI sin tener datos."], correct:0 },
+  { q:"En el proyecto de Workflow de Honda, ¿cómo recibe el aprobador la notificación para tomar una decisión?",
+    opts:["Mediante una llamada telefónica del asociado.","Recibe una notificación por correo para revisar la solicitud en el App.","El sistema imprime una hoja y se la lleva un mensajero.","Debe buscar la solicitud manualmente en una carpeta compartida de Excel."], correct:1 }
+];
+const L=['A','B','C','D'], Q_TIME=20, HOST_PASS='Honda2025';
+
+// ══════════════════════════════════════════════════════════════
+// ESTADO
+// ══════════════════════════════════════════════════════════════
+const socket=io();
+let gs=null, myName=sessionStorage.getItem('playerName')||null,
+    myRole=sessionStorage.getItem('quizRole')||null,
+    screen=null, tickId=null, tickRem=0;
+
+socket.on('state', newGs => {
+  const prevScreen = screen;
+  gs = newGs;
+  if (myRole==='host' && screen==='host-q')   { updateCounter(); return; }
+  if (myRole==='player' && screen==='player-q') {
+    const answered = gs.answers?.[`q${gs.questionIndex}`]?.[myName];
+    if (answered!==undefined) { stopTick(); render(); }
+    return;
+  }
+  render();
+});
+
+const app=document.getElementById('app');
+function render(){
+  if(!myRole)           { showModeSelect(); return; }
+  if(myRole==='host')   { renderHost();     return; }
+  if(!myName)           { showJoin();       return; }
+  renderPlayer();
+}
+
+// ══════════════════════════════════════════════════════════════
+// SELECCIÓN ROL
+// ══════════════════════════════════════════════════════════════
+function showModeSelect(){
+  stopTick(); screen='mode';
+  html(`<div class="screen active" style="gap:28px;max-width:420px;width:100%">
+    <div class="logo" style="justify-content:center">🏍️ Honda <em>Quiz</em></div>
+    <div style="text-align:center">
+      <div class="tag" style="margin-bottom:6px">Power Platform Workshop</div>
+      <p style="color:var(--gray);font-size:14px">¿Cómo deseas acceder?</p>
+    </div>
+    <button class="hero-btn primary" onclick="showHostLogin()">
+      <div class="hero-icon">🎮</div>
+      <div class="hero-label">Soy el Presentador</div>
+      <div class="hero-sub" style="color:rgba(255,255,255,0.7)">Requiere contraseña</div>
+    </button>
+    <button class="hero-btn" onclick="setRole('player')" style="color:var(--text)">
+      <div class="hero-icon">👤</div>
+      <div class="hero-label">Soy Participante</div>
+      <div class="hero-sub">Ingresa y responde</div>
+    </button>
+    <p style="color:var(--gray);font-size:12px;text-align:center">⚠️ Solo debe haber <strong>un Presentador</strong> por sesión</p>
+  </div>`);
+}
+
+function showHostLogin(){
+  screen='host-login';
+  html(`<div class="screen active" style="gap:22px;max-width:400px;width:100%">
+    <div class="logo" style="justify-content:center">🏍️ Honda <em>Quiz</em></div>
+    <div class="card">
+      <div class="card-title">🔐 Acceso Presentador</div>
+      <div class="card-sub">Ingresa la contraseña para continuar</div>
+      <input id="pInp" class="inp" type="password" placeholder="Contraseña..." autocomplete="off">
+      <div id="pErr" class="err"></div>
+      <button class="btn btn-red btn-full" onclick="checkPass()">Entrar como Presentador</button>
+      <button class="btn btn-outline btn-full" style="margin-top:8px" onclick="showModeSelect()">← Volver</button>
+    </div>
+  </div>`);
+  const i=document.getElementById('pInp');
+  i.focus(); i.addEventListener('keydown',e=>{if(e.key==='Enter')checkPass();});
+}
+
+function checkPass(){
+  const v=document.getElementById('pInp')?.value||'';
+  if(v===HOST_PASS){ setRole('host'); }
+  else {
+    const e=document.getElementById('pErr');
+    if(e) e.textContent='❌ Contraseña incorrecta, intenta de nuevo';
+    const i=document.getElementById('pInp');
+    if(i){i.value='';i.style.borderColor='var(--red)';i.focus();}
+  }
+}
+function setRole(r){ myRole=r; sessionStorage.setItem('quizRole',r); render(); }
+
+// ══════════════════════════════════════════════════════════════
+// HOST
+// ══════════════════════════════════════════════════════════════
+function renderHost(){
+  if(!gs) return;
+  if(gs.phase==='lobby')    hostLobby();
+  else if(gs.phase==='question') hostQuestion();
+  else if(gs.phase==='results')  hostResults();
+  else if(gs.phase==='podium')   hostPodium();
+}
+
+function hostLobby(){
+  stopTick(); screen='host-lobby';
+  const players=Object.keys(gs.players||{});
+  html(`<div class="screen active" style="gap:18px">
+    <div class="logo">🏍️ Honda <em>Quiz</em></div>
+    <div class="row"><span class="badge-host">🎮 HOST</span><span class="tag">Power Platform Workshop</span></div>
+    <div class="card" style="text-align:center">
+      <div class="tag" style="margin-bottom:10px">Comparte esta URL con los participantes</div>
+      <div class="url-box">${esc(location.origin)}</div>
+      <div style="margin-top:20px">
+        <div class="big-num">${players.length}</div>
+        <div style="color:var(--gray);font-size:13px;margin-top:2px">participantes conectados</div>
+      </div>
+    </div>
+    ${players.length
+      ?`<div class="players-grid">${players.map(p=>`<div class="p-chip">👤 ${esc(p)}</div>`).join('')}</div>`
+      :'<p style="color:var(--gray);font-size:14px">Esperando participantes...</p>'}
+    <button class="btn btn-red" style="font-size:17px;padding:16px 40px" ${players.length===0?'disabled':''} onclick="socket.emit('host:start')">🚀 Iniciar Quiz</button>
+    <button class="btn btn-outline" onclick="hostReset()">🔄 Reiniciar todo</button>
+    <button class="switch-btn" onclick="changeRole()">↩ Cambiar rol</button>
+  </div>`);
+}
+
+function hostQuestion(){
+  stopTick(); screen='host-q';
+  const qi=gs.questionIndex, q=Qs[qi];
+  const rem=Math.max(0,Q_TIME-(Date.now()-gs.startTime)/1000);
+  const ansN=Object.keys((gs.answers||{})[`q${qi}`]||{}).length;
+  const tot=Object.keys(gs.players).length;
+  html(`<div class="screen active" style="gap:16px">
+    <div class="top-bar">
+      <span class="badge-host">🎮 HOST</span>
+      <span class="tag">Pregunta ${qi+1} / ${Qs.length}</span>
+      <div class="timer-num" id="tN">${Math.ceil(rem)}</div>
+    </div>
+    <div class="timer-wrap"><div class="timer-bar" id="tB" style="width:${(rem/Q_TIME)*100}%"></div></div>
+    <div class="card" style="padding:24px;text-align:center">
+      <div class="q-text">${esc(q.q)}</div>
+    </div>
+    <div class="ans-grid">
+      ${L.map((lbl,i)=>`<div class="ans-btn ${lbl}" style="cursor:default"><span class="ans-letter">${lbl}</span>${esc(q.opts[i])}</div>`).join('')}
+    </div>
+    <div id="ansBox" style="color:var(--text2);font-size:14px;text-align:center;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-weight:600">
+      ✅ <span id="ansN">${ansN}</span> / ${tot} han respondido
+    </div>
+    <button class="btn btn-red" onclick="socket.emit('host:showResults')">⏭️ Ver Resultados ahora</button>
+    <button class="switch-btn" onclick="changeRole()">↩ Cambiar rol</button>
+  </div>`);
+  tickRem=rem;
+  tickId=setInterval(()=>{
+    tickRem=Math.max(0,tickRem-0.5);
+    const b=document.getElementById('tB'),n=document.getElementById('tN');
+    if(b){b.style.width=`${(tickRem/Q_TIME)*100}%`;if(tickRem<5)b.style.background='#e74c3c';}
+    if(n) n.textContent=Math.ceil(tickRem);
+    if(tickRem<=0) stopTick();
+  },500);
+}
+
+function updateCounter(){
+  if(!gs) return;
+  const qi=gs.questionIndex;
+  const ansN=Object.keys((gs.answers||{})[`q${qi}`]||{}).length;
+  const tot=Object.keys(gs.players).length;
+  const el=document.getElementById('ansN'), box=document.getElementById('ansBox');
+  if(el) el.textContent=ansN;
+  if(box&&ansN>=tot&&tot>0){box.style.color='#27ae60';box.style.borderColor='rgba(39,174,96,0.3)';}
+}
+
+function hostResults(){
+  stopTick(); screen='host-results';
+  const qi=gs.questionIndex, q=Qs[qi];
+  const ans=(gs.answers||{})[`q${qi}`]||{};
+  const tot=Object.keys(gs.players).length||1;
+  const cnt=[0,0,0,0];
+  Object.values(ans).forEach(a=>cnt[a.ans]++);
+  const pctOk=Math.round((cnt[q.correct]/tot)*100);
+  const bars=L.map((lbl,i)=>{
+    const pct=Math.round((cnt[i]/tot)*100), isC=i===q.correct;
+    return `<div class="res-row">
+      <div class="res-letter ${lbl}">${lbl}</div>
+      <div class="res-bg"><div class="res-fill ${lbl}${isC?' cglow':''}" style="width:0%" data-w="${pct}">${cnt[i]>0?cnt[i]:''}</div></div>
+      ${isC?'<span class="badge-ok">✓ Correcta</span>':`<span style="color:var(--gray);font-size:13px;width:26px;text-align:right">${cnt[i]}</span>`}
+    </div>`;
+  }).join('');
+  const sorted=Object.entries(gs.players).sort((a,b)=>b[1].score-a[1].score);
+  const top5=sorted.slice(0,5).map(([n,d],i)=>
+    `<div class="lb-row" style="animation-delay:${i*.08}s">
+      <div class="lb-rank${i<3?' r'+(i+1):''}">${i<3?['🥇','🥈','🥉'][i]:i+1}</div>
+      <div class="lb-name">${esc(n)}</div>
+      <div class="lb-score">${d.score}</div>
+    </div>`).join('');
+  const isLast=qi+1>=Qs.length;
+  html(`<div class="screen active" style="gap:18px">
+    <div class="row"><span class="badge-host">🎮 HOST</span><span class="tag">Resultados — Pregunta ${qi+1}</span></div>
+    <div class="card" style="padding:22px">
+      <div style="font-size:14px;color:var(--text2);margin-bottom:18px;text-align:center;font-weight:600">${esc(q.q)}</div>
+      ${bars}
+      <div style="text-align:center;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+        <span style="font-size:13px;color:var(--gray)">Respondieron correctamente: </span>
+        <span style="font-family:Rajdhani;font-size:26px;font-weight:700;color:#27ae60">${pctOk}%</span>
+        <span style="color:var(--gray);font-size:13px"> (${cnt[q.correct]} de ${tot})</span>
+      </div>
+    </div>
+    <div class="card" style="padding:22px">
+      <div class="tag" style="margin-bottom:12px">🏆 Clasificación actual</div>
+      <div class="scroll">${top5||'<p style="color:var(--gray);font-size:13px">Sin datos aún</p>'}</div>
+    </div>
+    <button class="btn btn-red" style="font-size:16px;padding:15px 36px" onclick="socket.emit('host:next')">
+      ${isLast?'🏆 Ver Podio Final':`➡️ Siguiente Pregunta (${qi+2}/${Qs.length})`}
+    </button>
+    <button class="switch-btn" onclick="changeRole()">↩ Cambiar rol</button>
+  </div>`);
+  requestAnimationFrame(()=>setTimeout(()=>{
+    document.querySelectorAll('.res-fill[data-w]').forEach(el=>el.style.width=el.dataset.w+'%');
+  },80));
+}
+
+function hostPodium(){
+  stopTick(); screen='host-podium';
+  const sorted=Object.entries(gs.players).sort((a,b)=>b[1].score-a[1].score);
+  const [p1,p2,p3]=sorted;
+  const allRows=sorted.map(([n,d],i)=>
+    `<div class="lb-row" style="animation-delay:${i*.07}s">
+      <div class="lb-rank${i<3?' r'+(i+1):''}">${i<3?['🥇','🥈','🥉'][i]:i+1}</div>
+      <div class="lb-name">${esc(n)}</div>
+      <div class="lb-score">${d.score}</div>
+    </div>`).join('');
+  html(`<div class="screen active" style="gap:22px;text-align:center">
+    <div class="confetti-txt">🏆 ¡Resultados Finales!</div>
+    <div class="tag">Honda Power Platform Workshop</div>
+    <div class="podium">
+      ${p2?`<div class="podium-place p2"><div class="podium-name">${esc(p2[0])}</div><div class="podium-score">${p2[1].score} pts</div><div class="podium-block">🥈</div></div>`:''}
+      ${p1?`<div class="podium-place p1"><div class="podium-name">${esc(p1[0])}</div><div class="podium-score">${p1[1].score} pts</div><div class="podium-block">🥇</div></div>`:''}
+      ${p3?`<div class="podium-place p3"><div class="podium-name">${esc(p3[0])}</div><div class="podium-score">${p3[1].score} pts</div><div class="podium-block">🥉</div></div>`:''}
+    </div>
+    <div class="card" style="padding:22px;max-width:500px;width:100%">
+      <div class="tag" style="margin-bottom:12px">Clasificación completa</div>
+      <div class="scroll">${allRows}</div>
+    </div>
+    <button class="btn btn-outline" onclick="hostReset()">🔄 Jugar de Nuevo</button>
+    <button class="switch-btn" onclick="changeRole()">↩ Cambiar rol</button>
+  </div>`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// PLAYER
+// ══════════════════════════════════════════════════════════════
+function renderPlayer(){
+  if(!gs) return;
+  if(gs.phase==='lobby')    playerWaiting();
+  else if(gs.phase==='question') playerQuestion();
+  else if(gs.phase==='results')  playerResults();
+  else if(gs.phase==='podium')   playerPodium();
+}
+
+function showJoin(){
+  stopTick(); screen='join';
+  html(`<div class="screen active" style="gap:22px;max-width:400px;width:100%">
+    <div class="logo" style="justify-content:center">🏍️ Honda <em>Quiz</em></div>
+    <div class="card">
+      <div class="card-title">Unirse al Quiz</div>
+      <div class="card-sub">Workshop Power Platform · Honda</div>
+      <input id="nInp" class="inp" type="text" placeholder="Tu nombre..." maxlength="20">
+      <div id="nErr" class="err"></div>
+      <button class="btn btn-red btn-full" style="padding:15px" onclick="doJoin()">🚀 Unirse</button>
+    </div>
+  </div>`);
+  const i=document.getElementById('nInp');
+  i.focus(); i.addEventListener('keydown',e=>{if(e.key==='Enter')doJoin();});
+}
+
+function playerWaiting(){
+  stopTick(); screen='player-wait';
+  const count=Object.keys(gs.players||{}).length;
+  html(`<div class="screen active" style="gap:20px;text-align:center">
+    <div class="logo" style="justify-content:center">🏍️ Honda <em>Quiz</em></div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">👤</div>
+      <div class="card-title">¡Hola, ${esc(myName)}!</div>
+      <div style="color:var(--gray);font-size:14px;margin-bottom:18px">Estás registrado/a correctamente</div>
+      <div class="big-num">${count}</div>
+      <div style="color:var(--gray);font-size:13px;margin-top:4px">participantes conectados</div>
+    </div>
+    <div class="card" style="text-align:center">
+      <p style="color:var(--gray);font-size:14px;margin-bottom:14px">Esperando que el presentador inicie el quiz...</p>
+      <div class="dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>`);
+}
+
+function playerQuestion(){
+  const qi=gs.questionIndex;
+  const myA=gs.answers?.[`q${qi}`]?.[myName];
+  if(myA!==undefined){ playerAnswered(myA); return; }
+  if(screen==='player-q') return;
+  stopTick(); screen='player-q';
+  const q=Qs[qi], rem=Math.max(0,Q_TIME-(Date.now()-gs.startTime)/1000);
+  html(`<div class="screen active" style="gap:16px">
+    <div class="top-bar">
+      <span class="tag">Pregunta ${qi+1} de ${Qs.length}</span>
+      <div class="timer-num" id="tN">${Math.ceil(rem)}</div>
+    </div>
+    <div class="timer-wrap"><div class="timer-bar" id="tB" style="width:${(rem/Q_TIME)*100}%"></div></div>
+    <div class="card" style="padding:22px;text-align:center">
+      <div class="q-text" style="font-size:clamp(17px,3vw,26px)">${esc(q.q)}</div>
+    </div>
+    <div class="ans-grid">
+      ${L.map((lbl,i)=>`<button class="ans-btn ${lbl}" id="ab${i}" onclick="doAnswer(${i})"><span class="ans-letter">${lbl}</span>${esc(q.opts[i])}</button>`).join('')}
+    </div>
+  </div>`);
+  tickRem=rem;
+  tickId=setInterval(()=>{
+    tickRem=Math.max(0,tickRem-0.5);
+    const b=document.getElementById('tB'),n=document.getElementById('tN');
+    if(b){b.style.width=`${(tickRem/Q_TIME)*100}%`;if(tickRem<5)b.style.background='#e74c3c';}
+    if(n) n.textContent=Math.ceil(tickRem);
+    if(tickRem<=0){stopTick();playerAnswered(null);}
+  },500);
+}
+
+function playerAnswered(ansData){
+  stopTick(); screen='player-answered';
+  const qi=gs.questionIndex, q=Qs[qi];
+  const noT=ansData===null, ok=ansData?.correct;
+  const pts=gs.players?.[myName]?.score||0;
+  html(`<div class="screen active" style="gap:20px;text-align:center">
+    <div style="font-size:72px;line-height:1">${noT?'⏱️':ok?'🎉':'😞'}</div>
+    <div class="card-title" style="font-size:26px">${noT?'¡Se acabó el tiempo!':ok?'¡Correcto!':'¡Incorrecto!'}</div>
+    <div class="card" style="padding:18px">
+      <p style="font-size:13px;color:var(--gray);margin-bottom:12px">Respuesta correcta:</p>
+      <div class="ans-btn ${L[q.correct]}" style="cursor:default">
+        <span class="ans-letter">${L[q.correct]}</span>${esc(q.opts[q.correct])}
+      </div>
+    </div>
+    <div class="card" style="text-align:center;padding:20px">
+      <div style="color:var(--gray);font-size:13px;margin-bottom:8px">Tu puntaje acumulado</div>
+      <div class="pts-big">${pts} pts</div>
+    </div>
+    <div class="card" style="text-align:center;padding:16px">
+      <p style="color:var(--gray);font-size:13px;margin-bottom:12px">Esperando resultados...</p>
+      <div class="dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>`);
+}
+
+function playerResults(){
+  stopTick(); screen='player-results';
+  const qi=gs.questionIndex, q=Qs[qi];
+  const ans=(gs.answers||{})[`q${qi}`]||{};
+  const tot=Object.keys(gs.players).length||1;
+  const cnt=[0,0,0,0];
+  Object.values(ans).forEach(a=>cnt[a.ans]++);
+  const myA=ans[myName], pts=gs.players?.[myName]?.score||0;
+  const bars=L.map((lbl,i)=>{
+    const pct=Math.round((cnt[i]/tot)*100), isC=i===q.correct;
+    return `<div class="res-row">
+      <div class="res-letter ${lbl}">${lbl}</div>
+      <div class="res-bg"><div class="res-fill ${lbl}${isC?' cglow':''}" style="width:0%" data-w="${pct}">${cnt[i]>0?cnt[i]:''}</div></div>
+      ${isC?'<span class="badge-ok">✓</span>':`<span style="color:var(--gray);font-size:13px;width:20px;text-align:right">${cnt[i]}</span>`}
+    </div>`;
+  }).join('');
+  html(`<div class="screen active" style="gap:18px">
+    <div class="row">
+      <span class="tag">Resultados — Pregunta ${qi+1}</span>
+      ${myA?.correct?'<span class="badge-ok">✓ ¡Correcto!</span>':''}
+    </div>
+    <div class="card" style="padding:22px">${bars}</div>
+    <div class="card" style="text-align:center;padding:20px">
+      <div style="color:var(--gray);font-size:13px;margin-bottom:8px">Tu puntaje acumulado</div>
+      <div class="pts-big">${pts} pts</div>
+    </div>
+    <div class="card" style="text-align:center;padding:16px">
+      <p style="color:var(--gray);font-size:13px;margin-bottom:12px">Esperando siguiente pregunta...</p>
+      <div class="dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>`);
+  requestAnimationFrame(()=>setTimeout(()=>{
+    document.querySelectorAll('.res-fill[data-w]').forEach(el=>el.style.width=el.dataset.w+'%');
+  },80));
+}
+
+function playerPodium(){
+  stopTick(); screen='player-podium';
+  const sorted=Object.entries(gs.players).sort((a,b)=>b[1].score-a[1].score);
+  const myRank=sorted.findIndex(([n])=>n===myName)+1;
+  const pts=gs.players?.[myName]?.score||0;
+  const [p1,p2,p3]=sorted;
+  html(`<div class="screen active" style="gap:22px;text-align:center">
+    <div class="confetti-txt">🏆 ¡Resultados Finales!</div>
+    <div class="podium">
+      ${p2?`<div class="podium-place p2"><div class="podium-name" style="${p2[0]===myName?'color:var(--red)':''}">${esc(p2[0])}</div><div class="podium-score">${p2[1].score} pts</div><div class="podium-block">🥈</div></div>`:''}
+      ${p1?`<div class="podium-place p1"><div class="podium-name" style="${p1[0]===myName?'color:var(--red)':''}">${esc(p1[0])}</div><div class="podium-score">${p1[1].score} pts</div><div class="podium-block">🥇</div></div>`:''}
+      ${p3?`<div class="podium-place p3"><div class="podium-name" style="${p3[0]===myName?'color:var(--red)':''}">${esc(p3[0])}</div><div class="podium-score">${p3[1].score} pts</div><div class="podium-block">🥉</div></div>`:''}
+    </div>
+    <div class="card" style="text-align:center;padding:22px;max-width:380px">
+      <div style="color:var(--gray);font-size:14px;margin-bottom:6px">Tu posición final</div>
+      <div style="font-family:Rajdhani;font-size:56px;font-weight:700;color:var(--red)">#${myRank}</div>
+      <div style="color:var(--gray);font-size:14px">${pts} puntos · ¡Gracias por participar!</div>
+    </div>
+  </div>`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES & UTILS
+// ══════════════════════════════════════════════════════════════
+function hostReset(){ if(confirm('¿Reiniciar el quiz? Se perderán todos los datos.')) socket.emit('host:reset'); }
+function changeRole(){ stopTick(); sessionStorage.clear(); myRole=null; myName=null; screen=null; render(); }
+function doJoin(){
+  const name=(document.getElementById('nInp')?.value||'').trim();
+  const errEl=document.getElementById('nErr');
+  if(!name){if(errEl)errEl.textContent='Escribe tu nombre';return;}
+  socket.emit('player:join',{name},(res)=>{
+    if(res.error){if(errEl)errEl.textContent=res.error;return;}
+    myName=name; sessionStorage.setItem('playerName',name); render();
+  });
+}
+function doAnswer(idx){
+  L.forEach((_,i)=>{const b=document.getElementById(`ab${i}`);if(b)b.disabled=true;});
+  socket.emit('player:answer',{name:myName,ans:idx});
+}
+function stopTick(){ if(tickId){clearInterval(tickId);tickId=null;} }
+function html(h){ app.innerHTML=h; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+render();
+</script>
+</body>
+</html>
